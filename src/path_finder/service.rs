@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use ethers::abi::ethereum_types::{Address, U256};
 use ethers::prelude::{Middleware, StreamExt};
+use gearbox::path_finder::PathFinder as PathFinderContract;
 
-use crate::bindings::path_finder::PathFinder as PathFinderContract;
 use crate::config::Config;
 use crate::errors::LiquidationError;
 use crate::errors::LiquidationError::NetError;

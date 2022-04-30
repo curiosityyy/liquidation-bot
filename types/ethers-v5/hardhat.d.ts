@@ -21,9 +21,37 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ERC20__factory>;
     getContractFactory(
+      name: "IERC20Metadata",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC20Metadata__factory>;
+    getContractFactory(
       name: "IERC20",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IERC20__factory>;
+    getContractFactory(
+      name: "ERC721",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ERC721__factory>;
+    getContractFactory(
+      name: "IERC721Metadata",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC721Metadata__factory>;
+    getContractFactory(
+      name: "IERC721",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC721__factory>;
+    getContractFactory(
+      name: "IERC721Receiver",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC721Receiver__factory>;
+    getContractFactory(
+      name: "ERC165",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ERC165__factory>;
+    getContractFactory(
+      name: "IERC165",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC165__factory>;
     getContractFactory(
       name: "IUniswapV2Router01",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -37,53 +65,69 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IYVault__factory>;
     getContractFactory(
-      name: "IAppAddressProvider",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IAppAddressProvider__factory>;
-    getContractFactory(
-      name: "IAppCreditManager",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IAppCreditManager__factory>;
-    getContractFactory(
-      name: "IAppERC20",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IAppERC20__factory>;
-    getContractFactory(
-      name: "IAppPoolService",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IAppPoolService__factory>;
-    getContractFactory(
-      name: "IDataCompressor",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IDataCompressor__factory>;
-    getContractFactory(
       name: "IAddressProvider",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IAddressProvider__factory>;
+    getContractFactory(
+      name: "IAddressProviderEvents",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IAddressProviderEvents__factory>;
     getContractFactory(
       name: "ICreditAccount",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ICreditAccount__factory>;
     getContractFactory(
-      name: "ICreditFilter",
+      name: "ICreditFacade",
       signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.ICreditFilter__factory>;
+    ): Promise<Contracts.ICreditFacade__factory>;
     getContractFactory(
-      name: "ICreditManager",
+      name: "ICreditFacadeEvents",
       signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.ICreditManager__factory>;
+    ): Promise<Contracts.ICreditFacadeEvents__factory>;
+    getContractFactory(
+      name: "ICreditFacadeExceptions",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ICreditFacadeExceptions__factory>;
+    getContractFactory(
+      name: "ICreditManagerV2",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ICreditManagerV2__factory>;
+    getContractFactory(
+      name: "ICreditManagerV2Events",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ICreditManagerV2Events__factory>;
+    getContractFactory(
+      name: "ICreditManagerV2Exceptions",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ICreditManagerV2Exceptions__factory>;
     getContractFactory(
       name: "IDataCompressor",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IDataCompressor__factory>;
     getContractFactory(
-      name: "IPoolService",
+      name: "IDataCompressorExceptions",
       signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IPoolService__factory>;
+    ): Promise<Contracts.IDataCompressorExceptions__factory>;
     getContractFactory(
-      name: "IPriceOracle",
+      name: "IPriceOracleV2",
       signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IPriceOracle__factory>;
+    ): Promise<Contracts.IPriceOracleV2__factory>;
+    getContractFactory(
+      name: "IPriceOracleV2Events",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IPriceOracleV2Events__factory>;
+    getContractFactory(
+      name: "IPriceOracleV2Exceptions",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IPriceOracleV2Exceptions__factory>;
+    getContractFactory(
+      name: "IPriceOracleV2Ext",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IPriceOracleV2Ext__factory>;
+    getContractFactory(
+      name: "IVersion",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IVersion__factory>;
     getContractFactory(
       name: "IWETHGateway",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -104,10 +148,45 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.ERC20>;
     getContractAt(
+      name: "IERC20Metadata",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC20Metadata>;
+    getContractAt(
       name: "IERC20",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IERC20>;
+    getContractAt(
+      name: "ERC721",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ERC721>;
+    getContractAt(
+      name: "IERC721Metadata",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC721Metadata>;
+    getContractAt(
+      name: "IERC721",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC721>;
+    getContractAt(
+      name: "IERC721Receiver",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC721Receiver>;
+    getContractAt(
+      name: "ERC165",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ERC165>;
+    getContractAt(
+      name: "IERC165",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC165>;
     getContractAt(
       name: "IUniswapV2Router01",
       address: string,
@@ -124,65 +203,85 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IYVault>;
     getContractAt(
-      name: "IAppAddressProvider",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IAppAddressProvider>;
-    getContractAt(
-      name: "IAppCreditManager",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IAppCreditManager>;
-    getContractAt(
-      name: "IAppERC20",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IAppERC20>;
-    getContractAt(
-      name: "IAppPoolService",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IAppPoolService>;
-    getContractAt(
-      name: "IDataCompressor",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IDataCompressor>;
-    getContractAt(
       name: "IAddressProvider",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IAddressProvider>;
+    getContractAt(
+      name: "IAddressProviderEvents",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IAddressProviderEvents>;
     getContractAt(
       name: "ICreditAccount",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.ICreditAccount>;
     getContractAt(
-      name: "ICreditFilter",
+      name: "ICreditFacade",
       address: string,
       signer?: ethers.Signer
-    ): Promise<Contracts.ICreditFilter>;
+    ): Promise<Contracts.ICreditFacade>;
     getContractAt(
-      name: "ICreditManager",
+      name: "ICreditFacadeEvents",
       address: string,
       signer?: ethers.Signer
-    ): Promise<Contracts.ICreditManager>;
+    ): Promise<Contracts.ICreditFacadeEvents>;
+    getContractAt(
+      name: "ICreditFacadeExceptions",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ICreditFacadeExceptions>;
+    getContractAt(
+      name: "ICreditManagerV2",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ICreditManagerV2>;
+    getContractAt(
+      name: "ICreditManagerV2Events",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ICreditManagerV2Events>;
+    getContractAt(
+      name: "ICreditManagerV2Exceptions",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ICreditManagerV2Exceptions>;
     getContractAt(
       name: "IDataCompressor",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IDataCompressor>;
     getContractAt(
-      name: "IPoolService",
+      name: "IDataCompressorExceptions",
       address: string,
       signer?: ethers.Signer
-    ): Promise<Contracts.IPoolService>;
+    ): Promise<Contracts.IDataCompressorExceptions>;
     getContractAt(
-      name: "IPriceOracle",
+      name: "IPriceOracleV2",
       address: string,
       signer?: ethers.Signer
-    ): Promise<Contracts.IPriceOracle>;
+    ): Promise<Contracts.IPriceOracleV2>;
+    getContractAt(
+      name: "IPriceOracleV2Events",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IPriceOracleV2Events>;
+    getContractAt(
+      name: "IPriceOracleV2Exceptions",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IPriceOracleV2Exceptions>;
+    getContractAt(
+      name: "IPriceOracleV2Ext",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IPriceOracleV2Ext>;
+    getContractAt(
+      name: "IVersion",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IVersion>;
     getContractAt(
       name: "IWETHGateway",
       address: string,

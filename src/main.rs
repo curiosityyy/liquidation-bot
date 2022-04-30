@@ -11,10 +11,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use ethers::prelude::*;
-use ethers_core::*;
+use gearbox::address_provider::AddressProvider;
 
 //
-use crate::bindings::address_provider::AddressProvider;
 use crate::config::Config;
 use crate::credit_service::service::CreditService;
 use crate::credit_service::CreditManager;
@@ -23,7 +22,6 @@ use crate::token_service::service::TokenService;
 
 //
 mod ampq_service;
-mod bindings;
 mod config;
 mod credit_service;
 mod errors;
@@ -42,6 +40,8 @@ async fn main() -> Result<()> {
     dbg!(&config);
 
     let provider = Provider::<Http>::try_from(config.eth_provider_rpc.clone())?;
+    // let code = provider.get_code("0x5FbDB2315678afecb367f032d93F642f64180aa3");
+    // println!("code {:?}", code); 
 
     // create a wallet and connect it to the provider
     let wallet = config.private_key.parse::<LocalWallet>()?;
@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
 
     let client: ethers::prelude::SignerMiddleware<
         ethers::prelude::Provider<ethers::prelude::Http>,
-        ethers::prelude::Wallet<ethers_core::k256::ecdsa::SigningKey>,
+        ethers::prelude::Wallet<ethers::core::k256::ecdsa::SigningKey>,
     > = SignerMiddleware::new(provider.clone(), w2);
 
 

@@ -6,10 +6,10 @@ use std::sync::Arc;
 use std::{thread, time};
 
 use ethers::prelude::*;
+use gearbox::data_compressor::DataCompressor;
+use gearbox::credit_manager::CreditManager as CreditManagerContract;
 
 use crate::ampq_service::AmpqService;
-use crate::bindings::data_compressor::DataCompressor;
-use crate::bindings::CreditManager as CM;
 use crate::config::Config;
 use crate::credit_service::credit_manager::CreditManager;
 use crate::errors::LiquidationError;
@@ -99,7 +99,7 @@ impl<M: Middleware, S: Signer> CreditService<M, S> {
         }
 
         let tokens = self.get_tokens();
-        self.price_oracle.load_price_feeds(&tokens).await;
+        self.price_oracle.load_price_feeds(&tokens, weth_token).await;
         self.token_service.add_token(&tokens).await;
 
         self.ampq_service
@@ -163,7 +163,10 @@ impl<M: Middleware, S: Signer> CreditService<M, S> {
         let mut terminator_jobs: Vec<TerminatorJob> = Vec::new();
 
         // Updates info
+        let mut i = 0;
         for cm in self.credit_managers.iter_mut() {
+            println!("{} {}", i, self.last_block_synced); 
+            i += 1;
             cm.update(
                 &self.last_block_synced,
                 &to,

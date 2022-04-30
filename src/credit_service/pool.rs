@@ -1,7 +1,7 @@
 use ethers::abi::Address;
 use ethers::prelude::{Middleware, U256};
+use gearbox::pool_service::PoolService as PoolContract;
 
-use crate::bindings::pool_service::PoolService as PoolContract;
 
 pub struct PoolService<M: Middleware> {
     contract: PoolContract<M>,

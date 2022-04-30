@@ -1,12 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
-use std::iter::FromIterator;
-use std::ops::Deref;
 
 use ethers::abi::ethereum_types::{Address, U256};
 use ethers::prelude::Middleware;
+use gearbox::erc20::ERC20;
 
-use crate::bindings::ERC20;
 
 #[derive(Clone)]
 pub struct Token<M: Middleware> {

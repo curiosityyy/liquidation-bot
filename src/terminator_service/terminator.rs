@@ -1,21 +1,20 @@
-use crate::bindings::terminator::Terminator;
-use crate::errors::LiquidationError;
-use crate::errors::LiquidationError::NetError;
-use crate::path_finder::service::TradePath;
-use ethers::abi::ethereum_types::H256;
 use ethers::abi::Address;
 use ethers::prelude::{Middleware, Signer, SignerMiddleware, TransactionReceipt, U256};
+use terminator::shared_types::MultiCall;
+use terminator::terminator::{Terminator, UniV2Params};
+
+use crate::errors::LiquidationError;
+use crate::errors::LiquidationError::NetError;
 
 #[derive(Debug)]
 pub struct TerminatorJob {
-    pub(crate) credit_manager: Address,
+    pub(crate) credit_facade: Address,
     pub(crate) borrower: Address,
+    pub(crate) skip_token_mask: U256,
+    pub(crate) covert_weth: bool,
+    pub(crate) calls: Vec<MultiCall>,
     pub(crate) router: Address,
-    pub(crate) paths: Vec<(
-        ethers_core::types::U256,
-        Vec<ethers_core::types::Address>,
-        ethers_core::types::U256,
-    )>,
+    pub(crate) paths: Vec<UniV2Params>,
     pub repay_amount: U256,
     pub underlying_token: Address,
 }
@@ -64,8 +63,11 @@ impl<M: Middleware, S: Signer> TerminatorService<M, S> {
         let result = self
             .contract
             .liquidate_and_sell_on_v2(
-                job.credit_manager,
+                job.credit_facade,
                 job.borrower,
+                job.skip_token_mask,
+                job.covert_weth,
+                job.calls.clone(),
                 job.router,
                 job.paths.clone(),
             )

@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: BSL-1.1
-// Gearbox. Generalized leverage protocol that allows to take leverage and then use it across other DeFi protocols and platforms in a composable way.
-// (c) Gearbox.fi, 2021
-pragma solidity ^0.7.4;
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Gearbox Protocol. Generalized leverage for DeFi protocols
+// (c) Gearbox Holdings, 2021
+pragma solidity ^0.8.10;
+
 
 interface IWETHGateway {
     /// @dev convert ETH to WETH and add liqudity to pool
@@ -35,25 +36,25 @@ interface IWETHGateway {
     /// @param leverageFactor Multiplier to borrowers own funds
     /// @param referralCode Code used to register the integrator originating the operation, for potential rewards.
     ///                     0 if the action is executed directly by the user, without any middle-man
-    function openCreditAccountETH(
-        address creditManager,
-        address payable onBehalfOf,
-        uint256 leverageFactor,
-        uint256 referralCode
-    ) external payable;
+    // function openCreditAccountETH(
+    //     address creditManager,
+    //     address payable onBehalfOf,
+    //     uint256 leverageFactor,
+    //     uint256 referralCode
+    // ) external payable;
 
-    /// @dev Repays credit account in ETH
-    ///       - transfer borrowed money with interest + fee from borrower account to pool
-    ///       - transfer all assets to "to" account
-    /// @param creditManager Address of credit Manager. Should used WETH as underlying asset
-    /// @param to Address to send credit account assets
-    function repayCreditAccountETH(address creditManager, address to)
-        external
-        payable;
-
-    function addCollateralETH(address creditManager, address onBehalfOf)
-        external
-        payable;
+//    /// @dev Repays credit account in ETH
+//    ///       - transfer borrowed money with interest + fee from borrower account to pool
+//    ///       - transfer all assets to "to" account
+//    /// @param creditManager Address of credit Manager. Should used WETH as underlying asset
+//    /// @param to Address to send credit account assets
+//    function repayCreditAccountETH(address creditManager, address to)
+//        external
+//        payable;
+//
+//    function addCollateralETH(address creditManager, address onBehalfOf)
+//        external
+//        payable;
 
     /// @dev Unwrap WETH => ETH
     /// @param to Address to send eth

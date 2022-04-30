@@ -3,7 +3,6 @@ use std::fmt::{Debug, Formatter};
 
 use ethers::prelude::*;
 
-use crate::credit_service::credit_filter::CreditFilter;
 use crate::errors::LiquidationError;
 use crate::price_oracle::oracle::PriceOracle;
 
@@ -32,17 +31,17 @@ impl CreditAccount {
         underlying_token: Address,
         cumulative_index_now: &U256,
         price_oracle: &PriceOracle<M, S>,
-        credit_filter: &CreditFilter<SignerMiddleware<M, S>>,
+        liquidation_thresholds: &HashMap<Address, U256>,
     ) -> Result<u64, LiquidationError> {
         let mut total: U256 = 0.into();
         for asset in self.balances.clone() {
             total += price_oracle.convert(asset.1, asset.0, underlying_token)?
-                * credit_filter.liquidation_thresholds.get(&asset.0).unwrap();
+                * liquidation_thresholds.get(&asset.0).unwrap();
         }
 
         let borrowed_amount_plus_interest =
             self.borrowed_amount * cumulative_index_now / self.cumulative_index_at_open;
-        self.health_factor = ((total / borrowed_amount_plus_interest).as_u64()) ;
+        self.health_factor = (total / borrowed_amount_plus_interest).as_u64() ;
 
         Ok(self.health_factor)
     }

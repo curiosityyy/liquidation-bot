@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: BSL-1.1
-// Gearbox. Generalized leverage protocol that allows to take leverage and then use it across other DeFi protocols and platforms in a composable way.
-// (c) Gearbox.fi, 2021
-pragma solidity ^0.7.4;
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Gearbox Protocol. Generalized leverage for DeFi protocols
+// (c) Gearbox Holdings, 2021
+pragma solidity ^0.8.10;
+import {IVersion} from "./IVersion.sol";
 
 /// @title Reusable Credit Account interface
 /// @notice Implements general credit account:
@@ -14,25 +15,31 @@ pragma solidity ^0.7.4;
 ///
 ///  More: https://dev.gearbox.fi/developers/creditManager/vanillacreditAccount
 
-interface ICreditAccount {
+interface ICreditAccount is IVersion {
     /// @dev Initializes clone contract
     function initialize() external;
 
     /// @dev Connects credit account to credit manager
     /// @param _creditManager Credit manager address
-    function connectTo(address _creditManager) external;
-
-    /// @dev Set general credit account parameters. Restricted to credit managers only
-    /// @param _borrowedAmount Amount which pool lent to credit account
-    /// @param _cumulativeIndexAtOpen Cumulative index at open. Uses for interest calculation
-    function setGenericParameters(
+    function connectTo(
+        address _creditManager,
         uint256 _borrowedAmount,
         uint256 _cumulativeIndexAtOpen
     ) external;
 
+    //    /// @dev Set general credit account parameters. Restricted to credit managers only
+    //    /// @param _borrowedAmount Amount which pool lent to credit account
+    //    /// @param _cumulativeIndexAtOpen Cumulative index at open. Uses for interest calculation
+    //    function setGenericParameters(
+    //
+    //    ) external;
+
     /// @dev Updates borrowed amount. Restricted to credit managers only
     /// @param _borrowedAmount Amount which pool lent to credit account
-    function updateBorrowedAmount(uint256 _borrowedAmount) external;
+    function updateParameters(
+        uint256 _borrowedAmount,
+        uint256 _cumulativeIndexAtOpen
+    ) external;
 
     /// @dev Approves particular token for swap contract
     /// @param token ERC20 token for allowance

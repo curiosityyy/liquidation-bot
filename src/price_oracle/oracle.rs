@@ -1,16 +1,11 @@
-use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-use std::sync::Arc;
 
 use ethers::prelude::*;
+use gearbox::aggregator_v3_interface::AggregatorV3Interface;
+use gearbox::price_oracle::PriceOracle as Oracle;
 
-use crate::bindings::AggregatorV3Interface;
-use crate::bindings::PriceOracle as Oracle;
-use crate::bindings::{DataCompressor, OpenCreditAccountFilter};
 use crate::errors::LiquidationError;
 use crate::errors::LiquidationError::NetError;
-use crate::token_service::service::TokenService;
 
 pub struct PriceOracle<M: Middleware, S: Signer> {
     price_feeds: HashMap<Address, AggregatorV3Interface<SignerMiddleware<M, S>>>,
@@ -33,14 +28,13 @@ impl<M: Middleware, S: Signer> PriceOracle<M, S> {
             client: client.clone(),
             decimal_multipliers: HashMap::new(),
             decimal_dividers: HashMap::new(),
-            weth_token: Address::default(),
+            weth_token: Address::default()
         }
     }
 
-    pub async fn load_price_feeds(&mut self, tokens: &HashSet<Address>) {
+    pub async fn load_price_feeds(&mut self, tokens: &HashSet<Address>, weth_token: Address) {
         println!("load price feeds");
 
-        let weth_token = self.contract.weth_address().call().await.unwrap();
 
         for token in tokens {
             if *token != weth_token {
@@ -49,16 +43,16 @@ impl<M: Middleware, S: Signer> PriceOracle<M, S> {
                     *token,
                     AggregatorV3Interface::new(price_feed_addr, self.client.clone()),
                 );
-                self.prices.insert(*token, 0.into());
+                self.prices.insert(*token, U256::zero());
                 let decimal_multiplier = self
                     .contract
-                    .decimals_multipliers(*token)
+                    .decimals(*token)
                     .call()
                     .await
                     .unwrap();
                 let decimal_divider = self
                     .contract
-                    .decimals_dividers(*token)
+                    .decimals(*token)
                     .call()
                     .await
                     .unwrap();
@@ -67,9 +61,9 @@ impl<M: Middleware, S: Signer> PriceOracle<M, S> {
             }
         }
 
-        self.decimal_multipliers.insert(weth_token, U256::from(1));
+        self.decimal_multipliers.insert(weth_token, U256::from_dec_str("1").unwrap());
         self.decimal_dividers
-            .insert(weth_token, U256::from(10).pow(U256::from(18)));
+            .insert(weth_token, U256::exp10(18));
         self.weth_token = weth_token;
     }
 

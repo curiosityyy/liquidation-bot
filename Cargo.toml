@@ -8,12 +8,11 @@ default-run = "liq_rs"
 
 [dependencies]
 anyhow = "1.0.39"
-ethers = { git = "https://github.com/gakonst/ethers-rs" }
+ethers = { version = "^0.6.0", git = "https://github.com/gakonst/ethers-rs", default-features = false }
 dotenv = "0.15"
 tokio = { version = "1.5", features = ["macros", "rt-multi-thread"] }
 serde = { version = "1.0.124", features = ["derive"] }
-serde_json = "1.0.64"
-ethers-core = "0.5.0"
+serde_json = "1.0.79"
 hex = "0.4"
 convert_case = "0.1.0"
 futures = "0.3.17"
@@ -21,3 +20,6 @@ once_cell = { version = "1.8.0" }
 tokio-amqp = "1.0.0"
 lapin = "1.8.0"
 async-recursion = "0.3.2"
+gearbox = { path = "./gearbox-rs-bindings" }
+terminator = { path = "./terminator-bindings" }
+
