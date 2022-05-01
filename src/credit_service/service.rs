@@ -83,6 +83,8 @@ impl<M: Middleware, S: Signer> CreditService<M, S> {
             .await
             .unwrap();
 
+        let weth_token = self.dc.weth_token().call().await.unwrap();
+
         // let ass: &'a AmpqService = self.ampq_service.borrow().clone();
 
         for cm in cm_list {
@@ -209,7 +211,7 @@ impl<M: Middleware, S: Signer> CreditService<M, S> {
                     } else {
                         msg = format!(
                             "WARN: Cant liquidate\nCredit manager: {:?}\naccount {:?} ",
-                            &job.credit_manager, &job.borrower,
+                            &job.credit_facade, &job.borrower,
                         );
                     }
 
@@ -221,7 +223,7 @@ impl<M: Middleware, S: Signer> CreditService<M, S> {
                     "Liquidation required:\ncredit manager {}: {}/address/{:?}\nborrower: {:?}\namount needed: {}",
                     self.token_service.symbol(&job.underlying_token),
                     &self.etherscan,
-                    &job.credit_manager,
+                    &job.credit_facade,
                     &job.borrower,
                     self.token_service.format_bn(&job.underlying_token, &job.repay_amount),
                     // self.bot_address

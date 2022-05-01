@@ -3,12 +3,15 @@ use ethers::prelude::*;
 use futures::{StreamExt};
 use std::collections::{HashMap, HashSet};
 use std::vec::Vec;
-use gearbox::data_compressor::DataCompressor;
+use gearbox::data_compressor::DataCompressor as DataCompressorContract;
 use gearbox::shared_types::CreditManagerData;
 use gearbox::credit_manager::CreditManager as CreditManagerContract;
+use terminator::shared_types::MultiCall;
+use terminator::terminator::UniV2Params;
 
 use crate::config::config::str_to_address;
 use crate::credit_service::credit_account::CreditAccount;
+use crate::credit_service::credit_facade::CreditFacade;
 use crate::credit_service::credit_configurator::CreditConfigurator;
 use crate::credit_service::pool::PoolService;
 use crate::errors::LiquidationError;
@@ -20,14 +23,16 @@ use crate::terminator_service::terminator::TerminatorJob;
 pub struct CreditManager<M: Middleware, S: Signer> {
     pub credit_accounts: HashMap<Address, CreditAccount>,
     pub allowed_tokens: Vec<ethers::core::types::Address>,
-    pub liquidation_thresholds: HashMap<Address, U256>,
 
+    liquidation_thresholds: HashMap<Address, U256>,
     added_to_job: HashMap<Address, u8>,
     address: ethers::core::types::Address,
     underlying_token: ethers::core::types::Address,
     is_weth: bool,
-    contract: CM<SignerMiddleware<M, S>>,
-    data_compressor: DataCompressor<SignerMiddleware<M, S>>,
+    contract: CreditManagerContract<SignerMiddleware<M, S>>,
+    data_compressor: DataCompressorContract<SignerMiddleware<M, S>>,
+
+    credit_facade: CreditFacade<M, S>,
     pool_service: PoolService<SignerMiddleware<M, S>>,
     credit_configurator: CreditConfigurator<SignerMiddleware<M, S>>,
     yearn_tokens: HashMap<Address, Address>,
@@ -39,17 +44,20 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
     pub async fn new(
         client: std::sync::Arc<SignerMiddleware<M, S>>,
         credit_manager_data: &CreditManagerData,
-        data_compressor: DataCompressor<SignerMiddleware<M, S>>,
+        data_compressor: DataCompressorContract<SignerMiddleware<M, S>>,
         chain_id: u64,
         ampq_service: AmpqService,
         charts_url: String,
     ) -> Self {
-        let contract = CM::new(payload.0, client.clone());
+        let contract = CreditManagerContract::new(credit_manager_data.addr, client.clone());
         let pool_service_address = contract.pool_service().call().await.unwrap();
         let pool_service = PoolService::new(pool_service_address, client.clone());
 
         let credit_configurator_address = contract.credit_configurator().call().await.unwrap();
         let credit_configurator = CreditConfigurator::new(credit_configurator_address, client.clone());
+
+        let credit_facade_address = contract.credit_facade().call().await.unwrap();
+        let credit_facade = CreditFacade::new(credit_facade_address, client.clone());
 
         let mut yearn_tokens: HashMap<Address, Address> = HashMap::new();
 
@@ -95,19 +103,20 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
             credit_accounts: HashMap::new(),
             added_to_job: HashMap::new(),
             contract,
-            address: payload.0,
-            underlying_token: payload.2,
-            is_weth: payload.3,
+            address: credit_manager_data.addr,
+            underlying_token: credit_manager_data.underlying,
+            is_weth: credit_manager_data.is_weth,
             // can_borrow: payload.4,
             // borrow_rate: payload.5,
             // min_amount: payload.6,
             // max_amount: payload.7,
             // max_leverage_factor: payload.8,
             // available_liquidity: payload.9,
-            allowed_tokens: payload.10.clone(),
+            allowed_tokens: credit_manager_data.allowed_tokens.clone(),
             liquidation_thresholds: HashMap::new(),
             // adapters: payload.11.clone(),
             data_compressor,
+            credit_facade,
             pool_service,
             credit_configurator,
             yearn_tokens,
@@ -172,7 +181,164 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
         }
         Ok(())
     }
+    
+    async fn liquidate(
+        &mut self,
+        address: &Address,
+        path_finder: &PathFinder<SignerMiddleware<M, S>>,
+    ) -> Result<TerminatorJob, LiquidationError> {
+        let account = &self.credit_accounts[&address];
+        println!("Preparing to liquidate {:?}", &address);
 
+        let mut paths: Vec<UniV2Params> = Vec::new();
+
+        let mut balances = account.balances.clone();
+
+        for y_token in self.yearn_tokens.iter() {
+            *balances.get_mut(&y_token.1).unwrap() = balances[&y_token.0] + balances[&y_token.1];
+            *balances.get_mut(&y_token.0).unwrap() = U256::zero();
+        }
+
+        for asset in self.allowed_tokens.iter() {
+            let trade_path = path_finder
+                .get_best_rate(*asset, self.underlying_token, balances[&asset])
+                .await?;
+            paths.push(UniV2Params{
+                amount_in: balances[&asset], 
+                path: trade_path.path, 
+                amount_out_min: trade_path.amount_out_min,
+            });
+        }
+
+        dbg!(&account);
+        dbg!(&paths);
+
+        let (borrowed_amount, borrowed_amount_with_interest) = self.contract.calc_credit_account_accrued_interest(*address).call().await.unwrap();
+        let (total_value, _) = self.credit_facade.contract.calc_total_value(*address).call().await.unwrap();
+        let (amount_to_pool, remaining_funds, _, _) = self.contract.calc_close_payments(total_value, true, borrowed_amount, borrowed_amount_with_interest).call().await.unwrap();
+        
+
+        Ok(TerminatorJob {
+            credit_facade: self.address,
+            borrower: *address,
+            skip_token_mask: U256::zero(),
+            convert_weth: false,
+            calls: Vec::<MultiCall>::new(),
+            router: path_finder.router,
+            paths,
+            underlying_token: self.underlying_token,
+            repay_amount: amount_to_pool + remaining_funds,
+        })
+    }
+
+    async fn update_accounts(&mut self, from_block: &U64, to_block: &U64) {
+
+        let updated: HashSet<Address> = self.credit_facade.update_accounts(from_block, to_block, &mut self.added_to_job, &mut self.credit_accounts).await;
+        // println!("Got operations: {}", &counter);
+        // println!("Got operations: {:?}", &oper_by_user.keys().len());
+        println!("\n\nUnderlying token: {:?}", &self.underlying_token);
+        println!("\n\nCredit manager address: {:?}", &self.address);
+        println!("Credit acc data is loaded");
+
+        let function = &self
+            .data_compressor
+            .abi()
+            .functions
+            .get("getCreditAccountDataExtended")
+            .unwrap()[0];
+
+        dbg!(&updated);
+
+        // let tx =self.data_compressor
+        //     .get_credit_account_data_extended(self.address, *updated.iter().next().unwrap())
+        //     .tx.clone();
+        //
+        // let jobs = stream::iter(updated.clone().iter()).map(|b| {
+        //     async move {
+        //
+        //
+        //
+        //         self
+        //             .data_compressor
+        //             .client()
+        //             .call(&tx, BlockId::from(to_block.as_u64()).into())
+        //             .await
+        //             .unwrap()
+        //     }
+        // }).buffer_unordered(3);
+        //
+        // jobs.for_each(|f| async {
+        //     dbg!(f);
+        // }).await;
+
+        for borrower in updated.clone().iter() {
+            print!(". {}", borrower);
+            // let payload =
+            //     self
+            //     .data_compressor
+            //     .get_credit_account_data_extended(self.address, *borrower)
+            //     .call()
+            //     .await
+            //     .unwrap();
+
+            let tx = self
+                .data_compressor
+                .get_credit_account_data(self.address, *borrower)
+                .tx;
+
+            let response = self
+                .data_compressor
+                .client()
+                .call(&tx, BlockId::from(to_block.as_u64()).into())
+                .await
+                .unwrap();
+
+            let payload: (
+                ethers::core::types::Address,
+                ethers::core::types::Address,
+                bool,
+                ethers::core::types::Address,
+                ethers::core::types::Address,
+                ethers::core::types::U256,
+                ethers::core::types::U256,
+                ethers::core::types::U256,
+                ethers::core::types::U256,
+                Vec<(ethers::core::types::Address, ethers::core::types::U256, bool)>,
+                ethers::core::types::U256,
+                ethers::core::types::U256,
+                bool,
+                ethers::core::types::U256,
+                ethers::core::types::U256,
+                ethers::core::types::U256,
+            ) = decode_function_data(function, response, false).unwrap();
+
+            let health_factor = payload.7.as_u64();
+
+            let ca = CreditAccount {
+                contract: payload.0,
+                borrower: *borrower,
+                borrowed_amount: payload.13,
+                cumulative_index_at_open: payload.14,
+                balances: HashMap::from_iter(payload.9.into_iter().map(|elm| (elm.0, elm.1))),
+                health_factor,
+            };
+
+            // if health_factor > 100_000 {
+            //     dbg!(&ca);
+            // }
+
+            if self.credit_accounts.contains_key(&borrower) {
+                // dbg!(data.unwrap().0);
+                *self.credit_accounts.get_mut(&borrower).unwrap() = ca;
+            } else {
+                self.credit_accounts.insert(*borrower, ca);
+            }
+        }
+
+        println!("\nTotal accs: {}", &self.credit_accounts.len());
+
+        println!("Credit acc data is updated");
+    }
     
 
     pub fn print_accounts(&self) {

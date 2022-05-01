@@ -4,78 +4,23 @@ use std::vec::Vec;
 use async_recursion::async_recursion;
 use ethers::prelude::*;
 use gearbox::credit_facade::CreditFacade as CreditFacadeContract;
-use gearbox::data_compressor::DataCompressor as DataCompressorContract;
 use gearbox::credit_facade::CreditFacadeEvents;
 
-use crate::ampq_service::AmpqService;
 use crate::config::config::str_to_address;
 use crate::credit_service::credit_account::CreditAccount;
-use crate::credit_service::credit_manager::CreditManager;
-use crate::errors::LiquidationError;
-use crate::errors::LiquidationError::NetError;
-use crate::path_finder::PathFinder;
-use crate::terminator_service::terminator::TerminatorJob;
 
 pub struct CreditFacade<M: Middleware, S: Signer> {
-    added_to_job: HashMap<Address, u8>,
-
     address: ethers::core::types::Address,
-    underlying_token: ethers::core::types::Address,
-    contract: CreditFacadeContract<SignerMiddleware<M, S>>,
-    data_compressor: DataCompressorContract<SignerMiddleware<M, S>>,
-    credit_manager: CreditManager<M, S>, 
-    yearn_tokens: HashMap<Address, Address>,
-    ampq_service: AmpqService,
-    charts_url: String,
+    pub contract: CreditFacadeContract<SignerMiddleware<M, S>>,
 }
 
 impl<M: Middleware, S: Signer> CreditFacade<M, S> {
-    async fn liquidate(
-        &mut self,
-        address: &Address,
-        path_finder: &PathFinder<SignerMiddleware<M, S>>,
-    ) -> Result<TerminatorJob, LiquidationError> {
-        let account = &self.credit_manager.credit_accounts[&address];
-        println!("Preparing to liquidate {:?}", &address);
-
-        let mut paths: Vec<(
-            ethers::core::types::U256,
-            Vec<ethers::core::types::Address>,
-            ethers::core::types::U256,
-        )> = Vec::new();
-
-        let mut balances = account.balances.clone();
-
-        for y_token in self.yearn_tokens.iter() {
-            *balances.get_mut(&y_token.1).unwrap() = balances[&y_token.0] + balances[&y_token.1];
-            *balances.get_mut(&y_token.0).unwrap() = U256::zero();
+    pub fn new(address: Address, client: std::sync::Arc<SignerMiddleware<M, S>>) -> Self {
+        let contract = CreditFacadeContract::new(address, client.clone());
+        CreditFacade {
+            address,
+            contract,
         }
-
-        for asset in self.credit_manager.allowed_tokens.iter() {
-            let trade_path = path_finder
-                .get_best_rate(*asset, self.underlying_token, balances[&asset])
-                .await?;
-            paths.push((balances[&asset], trade_path.path, trade_path.amount_out_min));
-        }
-
-        dbg!(&account);
-        dbg!(&paths);
-
-        let repay_amount = self
-            .contract
-            .calc_repay_amount(*address, true)
-            .call()
-            .await
-            .map_err(|e| NetError("cant get repay amount".to_string()))?;
-
-        Ok(TerminatorJob {
-            credit_manager: self.address,
-            borrower: *address,
-            router: path_finder.router,
-            paths,
-            underlying_token: self.underlying_token,
-            repay_amount,
-        })
     }
     
     #[async_recursion]
@@ -110,7 +55,7 @@ impl<M: Middleware, S: Signer> CreditFacade<M, S> {
         }
     }
 
-    async fn update_accounts(&mut self, from_block: &U64, to_block: &U64) {
+    pub async fn update_accounts(&mut self, from_block: &U64, to_block: &U64, added_to_job: &mut HashMap<Address, u8>, credit_accounts: &mut HashMap<Address, CreditAccount>) -> HashSet<Address> {
         let mut updated: HashSet<Address> = HashSet::new();
 
         let events = self.load_events(from_block, to_block).await;
@@ -137,8 +82,8 @@ impl<M: Middleware, S: Signer> CreditFacade<M, S> {
                         println!("[{}]: CLOSE: {:?} ", &event.1.block_number, data);
                     }
 
-                    self.added_to_job.remove(&data.owner);
-                    self.credit_manager.credit_accounts.remove(&data.owner);
+                    added_to_job.remove(&data.owner);
+                    credit_accounts.remove(&data.owner);
                     updated.remove(&data.owner);
                 }
                 // CreditFacadeEvents::RepayCreditAccountFilter(data) => {
@@ -153,8 +98,8 @@ impl<M: Middleware, S: Signer> CreditFacade<M, S> {
                     if data.owner == selected {
                         println!("[{}]: LIQUIDATE: {:?} ", &event.1.block_number, data);
                     }
-                    self.added_to_job.remove(&data.owner);
-                    self.credit_manager.credit_accounts.remove(&data.owner);
+                    added_to_job.remove(&data.owner);
+                    credit_accounts.remove(&data.owner);
                     updated.remove(&data.owner);
                 }
                 CreditFacadeEvents::IncreaseBorrowedAmountFilter(data) => {
@@ -181,7 +126,7 @@ impl<M: Middleware, S: Signer> CreditFacade<M, S> {
                     if data.on_behalf_of == selected {
                         println!("[{}]: ADD COLLATERAL:  {:?} ", &event.1.block_number, data);
                     }
-                    self.added_to_job.remove(&data.on_behalf_of);
+                    added_to_job.remove(&data.on_behalf_of);
                     updated.insert(data.on_behalf_of);
                 }
                 CreditFacadeEvents::TransferAccountFilter(data) => {
@@ -190,8 +135,8 @@ impl<M: Middleware, S: Signer> CreditFacade<M, S> {
                     if data.new_owner == selected {
                         println!("[{}]: TRANSFER, {:?}", &event.1.block_number, data);
                     }
-                    self.credit_manager.credit_accounts.remove(&data.old_owner);
-                    self.added_to_job.remove(&data.old_owner);
+                    credit_accounts.remove(&data.old_owner);
+                    added_to_job.remove(&data.old_owner);
                     updated.remove(&data.old_owner);
                     updated.insert(data.new_owner);
                 }
@@ -206,113 +151,9 @@ impl<M: Middleware, S: Signer> CreditFacade<M, S> {
                         println!("[{}]: transfersAllowed , {:?}", &event.1.block_number, data);
                     } 
                 }
-
                 _ => {}
             }
         }
-        // println!("Got operations: {}", &counter);
-        // println!("Got operations: {:?}", &oper_by_user.keys().len());
-        println!("\n\nUnderlying token: {:?}", &self.underlying_token);
-        println!("\n\nCredit manager address: {:?}", &self.address);
-        println!("Credit acc data is loaded");
-
-        let function = &self
-            .data_compressor
-            .abi()
-            .functions
-            .get("getCreditAccountDataExtended")
-            .unwrap()[0];
-
-        dbg!(&updated);
-
-        // let tx =self.data_compressor
-        //     .get_credit_account_data_extended(self.address, *updated.iter().next().unwrap())
-        //     .tx.clone();
-        //
-        // let jobs = stream::iter(updated.clone().iter()).map(|b| {
-        //     async move {
-        //
-        //
-        //
-        //         self
-        //             .data_compressor
-        //             .client()
-        //             .call(&tx, BlockId::from(to_block.as_u64()).into())
-        //             .await
-        //             .unwrap()
-        //     }
-        // }).buffer_unordered(3);
-        //
-        // jobs.for_each(|f| async {
-        //     dbg!(f);
-        // }).await;
-
-        for borrower in updated.clone().iter() {
-            print!(". {}", borrower);
-            // let payload =
-            //     self
-            //     .data_compressor
-            //     .get_credit_account_data_extended(self.address, *borrower)
-            //     .call()
-            //     .await
-            //     .unwrap();
-
-            let tx = self
-                .data_compressor
-                .get_credit_account_data(self.address, *borrower)
-                .tx;
-
-            let response = self
-                .data_compressor
-                .client()
-                .call(&tx, BlockId::from(to_block.as_u64()).into())
-                .await
-                .unwrap();
-
-            let payload: (
-                ethers::core::types::Address,
-                ethers::core::types::Address,
-                bool,
-                ethers::core::types::Address,
-                ethers::core::types::Address,
-                ethers::core::types::U256,
-                ethers::core::types::U256,
-                ethers::core::types::U256,
-                ethers::core::types::U256,
-                Vec<(ethers::core::types::Address, ethers::core::types::U256, bool)>,
-                ethers::core::types::U256,
-                ethers::core::types::U256,
-                bool,
-                ethers::core::types::U256,
-                ethers::core::types::U256,
-                ethers::core::types::U256,
-            ) = decode_function_data(function, response, false).unwrap();
-
-            let health_factor = payload.7.as_u64();
-
-            let ca = CreditAccount {
-                contract: payload.0,
-                borrower: *borrower,
-                borrowed_amount: payload.13,
-                cumulative_index_at_open: payload.14,
-                balances: HashMap::from_iter(payload.9.into_iter().map(|elm| (elm.0, elm.1))),
-                health_factor,
-            };
-
-            // if health_factor > 100_000 {
-            //     dbg!(&ca);
-            // }
-
-            if self.credit_manager.credit_accounts.contains_key(&borrower) {
-                // dbg!(data.unwrap().0);
-                *self.credit_manager.credit_accounts.get_mut(&borrower).unwrap() = ca;
-            } else {
-                self.credit_manager.credit_accounts.insert(*borrower, ca);
-            }
-        }
-
-        println!("\nTotal accs: {}", &self.credit_manager.credit_accounts.len());
-
-        println!("Credit acc data is updated");
+        updated
     }
 }

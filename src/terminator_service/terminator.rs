@@ -11,12 +11,12 @@ pub struct TerminatorJob {
     pub(crate) credit_facade: Address,
     pub(crate) borrower: Address,
     pub(crate) skip_token_mask: U256,
-    pub(crate) covert_weth: bool,
+    pub(crate) convert_weth: bool,
     pub(crate) calls: Vec<MultiCall>,
     pub(crate) router: Address,
     pub(crate) paths: Vec<UniV2Params>,
-    pub repay_amount: U256,
-    pub underlying_token: Address,
+    pub(crate) underlying_token: Address,
+    pub(crate) repay_amount: U256,
 }
 
 pub struct TerminatorService<M: Middleware, S: Signer> {
@@ -66,7 +66,7 @@ impl<M: Middleware, S: Signer> TerminatorService<M, S> {
                 job.credit_facade,
                 job.borrower,
                 job.skip_token_mask,
-                job.covert_weth,
+                job.convert_weth,
                 job.calls.clone(),
                 job.router,
                 job.paths.clone(),

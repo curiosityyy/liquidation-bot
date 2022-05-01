@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use ethers::abi::ethereum_types::{Address, U256};
-use ethers::prelude::{Middleware, StreamExt};
+use ethers::prelude::{Middleware, StreamExt, U256, Address};
 use gearbox::path_finder::PathFinder as PathFinderContract;
 
 use crate::config::Config;
@@ -20,7 +19,7 @@ pub struct TradePath {
 pub struct PathFinder<M: Middleware> {
     contract: PathFinderContract<M>,
     tokens_middle: Vec<Address>,
-    swap_interface: U256,
+    swap_interface: u8,
     pub(crate) router: Address,
 }
 
@@ -50,7 +49,7 @@ impl<M: Middleware> PathFinder<M> {
             })
             .collect::<Vec<Address>>();
 
-        let swap_interface = U256::from(1);
+        let swap_interface: u8 = 1;
 
         let router = hex::decode(UNISWAP_ADDRESS.strip_prefix("0x").unwrap())
             .expect("Decoding of uniswap address failed");
@@ -69,7 +68,7 @@ impl<M: Middleware> PathFinder<M> {
         to: Address,
         amount: U256,
     ) -> Result<TradePath, LiquidationError> {
-        if amount == U256::from(0) || from == to {
+        if amount == U256::zero() || from == to {
             return Ok(TradePath {
                 path: vec![],
                 amount_out_min: Default::default(),
@@ -92,8 +91,8 @@ impl<M: Middleware> PathFinder<M> {
             .map_err(|err| NetError("cant get best uni price".to_string()))?;
 
         Ok(TradePath {
-            path: result.0,
-            amount_out_min: result.2 * 98 / 100,
+            path: result.path,
+            amount_out_min: result.rate * 98 / 100,
         })
     }
 }
