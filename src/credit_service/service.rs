@@ -6,8 +6,8 @@ use std::sync::Arc;
 use std::{thread, time};
 
 use ethers::prelude::*;
-use gearbox::data_compressor::DataCompressor;
 use gearbox::credit_manager::CreditManager as CreditManagerContract;
+use gearbox::data_compressor::DataCompressor;
 
 use crate::ampq_service::AmpqService;
 use crate::config::Config;
@@ -101,7 +101,9 @@ impl<M: Middleware, S: Signer> CreditService<M, S> {
         }
 
         let tokens = self.get_tokens();
-        self.price_oracle.load_price_feeds(&tokens, weth_token).await;
+        self.price_oracle
+            .load_price_feeds(&tokens, weth_token)
+            .await;
         self.token_service.add_token(&tokens).await;
 
         self.ampq_service
@@ -167,7 +169,7 @@ impl<M: Middleware, S: Signer> CreditService<M, S> {
         // Updates info
         let mut i = 0;
         for cm in self.credit_managers.iter_mut() {
-            println!("{} {}", i, self.last_block_synced); 
+            println!("{} {}", i, self.last_block_synced);
             i += 1;
             cm.update(
                 &self.last_block_synced,

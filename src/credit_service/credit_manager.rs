@@ -1,18 +1,18 @@
 use crate::ampq_service::AmpqService;
 use ethers::prelude::*;
-use futures::{StreamExt};
-use std::collections::{HashMap, HashSet};
-use std::vec::Vec;
+use futures::StreamExt;
+use gearbox::credit_manager::CreditManager as CreditManagerContract;
 use gearbox::data_compressor::DataCompressor as DataCompressorContract;
 use gearbox::shared_types::CreditManagerData;
-use gearbox::credit_manager::CreditManager as CreditManagerContract;
+use std::collections::{HashMap, HashSet};
+use std::vec::Vec;
 use terminator::shared_types::MultiCall;
 use terminator::terminator::UniV2Params;
 
 use crate::config::config::str_to_address;
 use crate::credit_service::credit_account::CreditAccount;
-use crate::credit_service::credit_facade::CreditFacade;
 use crate::credit_service::credit_configurator::CreditConfigurator;
+use crate::credit_service::credit_facade::CreditFacade;
 use crate::credit_service::pool::PoolService;
 use crate::errors::LiquidationError;
 use crate::errors::LiquidationError::NetError;
@@ -54,7 +54,8 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
         let pool_service = PoolService::new(pool_service_address, client.clone());
 
         let credit_configurator_address = contract.credit_configurator().call().await.unwrap();
-        let credit_configurator = CreditConfigurator::new(credit_configurator_address, client.clone());
+        let credit_configurator =
+            CreditConfigurator::new(credit_configurator_address, client.clone());
 
         let credit_facade_address = contract.credit_facade().call().await.unwrap();
         let credit_facade = CreditFacade::new(credit_facade_address, client.clone());
@@ -121,7 +122,7 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
             credit_configurator,
             yearn_tokens,
             ampq_service,
-            charts_url
+            charts_url,
         }
     }
 
@@ -133,7 +134,9 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
         path_finder: &PathFinder<SignerMiddleware<M, S>>,
         jobs: &mut Vec<TerminatorJob>,
     ) -> Result<(), LiquidationError> {
-        self.credit_configurator.update(from_block, to_block, &mut self.liquidation_thresholds).await;
+        self.credit_configurator
+            .update(from_block, to_block, &mut self.liquidation_thresholds)
+            .await;
         self.update_accounts(from_block, to_block).await;
         let new_ci = self.pool_service.get_new_ci().await;
 
@@ -155,7 +158,7 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
                     let bad_debt_blocks = self.added_to_job[&ca.1.borrower] + 1;
                     *self.added_to_job.get_mut(&ca.1.borrower).unwrap() = bad_debt_blocks;
 
-                    if bad_debt_blocks >= 5 && bad_debt_blocks % 50 == 5{
+                    if bad_debt_blocks >= 5 && bad_debt_blocks % 50 == 5 {
                         self.ampq_service
                             .send(format!(
                                 "BAD DEBT!: Credit manager: {:}\nborrower: {:?}\nCharts:{}/{:?}/{:?}",
@@ -181,7 +184,7 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
         }
         Ok(())
     }
-    
+
     async fn liquidate(
         &mut self,
         address: &Address,
@@ -203,9 +206,9 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
             let trade_path = path_finder
                 .get_best_rate(*asset, self.underlying_token, balances[&asset])
                 .await?;
-            paths.push(UniV2Params{
-                amount_in: balances[&asset], 
-                path: trade_path.path, 
+            paths.push(UniV2Params {
+                amount_in: balances[&asset],
+                path: trade_path.path,
                 amount_out_min: trade_path.amount_out_min,
             });
         }
@@ -213,10 +216,30 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
         dbg!(&account);
         dbg!(&paths);
 
-        let (borrowed_amount, borrowed_amount_with_interest) = self.contract.calc_credit_account_accrued_interest(*address).call().await.unwrap();
-        let (total_value, _) = self.credit_facade.contract.calc_total_value(*address).call().await.unwrap();
-        let (amount_to_pool, remaining_funds, _, _) = self.contract.calc_close_payments(total_value, true, borrowed_amount, borrowed_amount_with_interest).call().await.unwrap();
-        
+        let (borrowed_amount, borrowed_amount_with_interest) = self
+            .contract
+            .calc_credit_account_accrued_interest(*address)
+            .call()
+            .await
+            .unwrap();
+        let (total_value, _) = self
+            .credit_facade
+            .contract
+            .calc_total_value(*address)
+            .call()
+            .await
+            .unwrap();
+        let (amount_to_pool, remaining_funds, _, _) = self
+            .contract
+            .calc_close_payments(
+                total_value,
+                true,
+                borrowed_amount,
+                borrowed_amount_with_interest,
+            )
+            .call()
+            .await
+            .unwrap();
 
         Ok(TerminatorJob {
             credit_facade: self.address,
@@ -232,8 +255,15 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
     }
 
     async fn update_accounts(&mut self, from_block: &U64, to_block: &U64) {
-
-        let updated: HashSet<Address> = self.credit_facade.update_accounts(from_block, to_block, &mut self.added_to_job, &mut self.credit_accounts).await;
+        let updated: HashSet<Address> = self
+            .credit_facade
+            .update_accounts(
+                from_block,
+                to_block,
+                &mut self.added_to_job,
+                &mut self.credit_accounts,
+            )
+            .await;
         // println!("Got operations: {}", &counter);
         // println!("Got operations: {:?}", &oper_by_user.keys().len());
         println!("\n\nUnderlying token: {:?}", &self.underlying_token);
@@ -303,7 +333,11 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
                 ethers::core::types::U256,
                 ethers::core::types::U256,
                 ethers::core::types::U256,
-                Vec<(ethers::core::types::Address, ethers::core::types::U256, bool)>,
+                Vec<(
+                    ethers::core::types::Address,
+                    ethers::core::types::U256,
+                    bool,
+                )>,
                 ethers::core::types::U256,
                 ethers::core::types::U256,
                 bool,
@@ -339,7 +373,6 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
 
         println!("Credit acc data is updated");
     }
-    
 
     pub fn print_accounts(&self) {
         for acc in self.credit_accounts.values() {

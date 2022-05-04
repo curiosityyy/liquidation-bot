@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter};
 use std::error;
+use std::fmt::{Display, Formatter};
 
 struct NetError(String);
 

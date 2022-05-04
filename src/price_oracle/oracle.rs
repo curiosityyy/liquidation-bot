@@ -28,13 +28,12 @@ impl<M: Middleware, S: Signer> PriceOracle<M, S> {
             client: client.clone(),
             decimal_multipliers: HashMap::new(),
             decimal_dividers: HashMap::new(),
-            weth_token: Address::default()
+            weth_token: Address::default(),
         }
     }
 
     pub async fn load_price_feeds(&mut self, tokens: &HashSet<Address>, weth_token: Address) {
         println!("load price feeds");
-
 
         for token in tokens {
             if *token != weth_token {
@@ -44,26 +43,16 @@ impl<M: Middleware, S: Signer> PriceOracle<M, S> {
                     AggregatorV3Interface::new(price_feed_addr, self.client.clone()),
                 );
                 self.prices.insert(*token, U256::zero());
-                let decimal_multiplier = self
-                    .contract
-                    .decimals(*token)
-                    .call()
-                    .await
-                    .unwrap();
-                let decimal_divider = self
-                    .contract
-                    .decimals(*token)
-                    .call()
-                    .await
-                    .unwrap();
+                let decimal_multiplier = self.contract.decimals(*token).call().await.unwrap();
+                let decimal_divider = self.contract.decimals(*token).call().await.unwrap();
                 self.decimal_multipliers.insert(*token, decimal_multiplier);
                 self.decimal_dividers.insert(*token, decimal_divider);
             }
         }
 
-        self.decimal_multipliers.insert(weth_token, U256::from_dec_str("1").unwrap());
-        self.decimal_dividers
-            .insert(weth_token, U256::exp10(18));
+        self.decimal_multipliers
+            .insert(weth_token, U256::from_dec_str("1").unwrap());
+        self.decimal_dividers.insert(weth_token, U256::exp10(18));
         self.weth_token = weth_token;
     }
 

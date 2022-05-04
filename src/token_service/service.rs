@@ -5,7 +5,6 @@ use ethers::abi::ethereum_types::{Address, U256};
 use ethers::prelude::Middleware;
 use gearbox::erc20::ERC20;
 
-
 #[derive(Clone)]
 pub struct Token<M: Middleware> {
     pub symbol: String,

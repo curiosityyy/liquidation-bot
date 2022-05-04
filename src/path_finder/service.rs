@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ethers::prelude::{Middleware, StreamExt, U256, Address};
+use ethers::prelude::{Address, Middleware, StreamExt, U256};
 use gearbox::path_finder::PathFinder as PathFinderContract;
 
 use crate::config::Config;

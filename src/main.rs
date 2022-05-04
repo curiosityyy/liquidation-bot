@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
 
     let provider = Provider::<Http>::try_from(config.eth_provider_rpc.clone())?;
     // let code = provider.get_code("0x5FbDB2315678afecb367f032d93F642f64180aa3");
-    // println!("code {:?}", code); 
+    // println!("code {:?}", code);
 
     // create a wallet and connect it to the provider
     let wallet = config.private_key.parse::<LocalWallet>()?;
@@ -53,8 +53,6 @@ async fn main() -> Result<()> {
         ethers::prelude::Provider<ethers::prelude::Http>,
         ethers::prelude::Wallet<ethers::core::k256::ecdsa::SigningKey>,
     > = SignerMiddleware::new(provider.clone(), w2);
-
-
 
     let client = Arc::new(client);
 

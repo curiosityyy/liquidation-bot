@@ -17,12 +17,9 @@ pub struct CreditFacade<M: Middleware, S: Signer> {
 impl<M: Middleware, S: Signer> CreditFacade<M, S> {
     pub fn new(address: Address, client: std::sync::Arc<SignerMiddleware<M, S>>) -> Self {
         let contract = CreditFacadeContract::new(address, client.clone());
-        CreditFacade {
-            address,
-            contract,
-        }
+        CreditFacade { address, contract }
     }
-    
+
     #[async_recursion]
     async fn load_events(
         &mut self,
@@ -55,7 +52,13 @@ impl<M: Middleware, S: Signer> CreditFacade<M, S> {
         }
     }
 
-    pub async fn update_accounts(&mut self, from_block: &U64, to_block: &U64, added_to_job: &mut HashMap<Address, u8>, credit_accounts: &mut HashMap<Address, CreditAccount>) -> HashSet<Address> {
+    pub async fn update_accounts(
+        &mut self,
+        from_block: &U64,
+        to_block: &U64,
+        added_to_job: &mut HashMap<Address, u8>,
+        credit_accounts: &mut HashMap<Address, CreditAccount>,
+    ) -> HashSet<Address> {
         let mut updated: HashSet<Address> = HashSet::new();
 
         let events = self.load_events(from_block, to_block).await;
@@ -149,7 +152,7 @@ impl<M: Middleware, S: Signer> CreditFacade<M, S> {
                 CreditFacadeEvents::TransferAccountAllowedFilter(data) => {
                     if data.from == selected || data.to == selected {
                         println!("[{}]: transfersAllowed , {:?}", &event.1.block_number, data);
-                    } 
+                    }
                 }
                 _ => {}
             }
