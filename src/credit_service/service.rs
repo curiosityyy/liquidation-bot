@@ -7,6 +7,9 @@ use std::sync::Arc;
 use std::{thread, time};
 
 use ethers::prelude::*;
+use serenity::prelude::*;
+use serenity::model::id::{ChannelId, GuildId};
+
 
 use crate::ampq_service::AmpqService;
 use crate::bindings::idata_compressor::{CreditManagerData, IDataCompressor};
@@ -21,6 +24,7 @@ use crate::price_oracle::oracle::PriceOracle;
 use crate::terminator_service::terminator::{TerminatorJob, TerminatorService};
 use crate::token_service::service::TokenService;
 
+
 pub struct CreditService<M: Middleware, S: Signer> {
     credit_managers: Vec<CreditManager<M, S>>,
     token_service: TokenService<SignerMiddleware<M, S>>,
@@ -32,7 +36,7 @@ pub struct CreditService<M: Middleware, S: Signer> {
     path_finder: PathFinder<SignerMiddleware<M, S>>,
     ampq_service: AmpqService,
     bot_address: Address,
-    terminator_service: TerminatorService<M, S>,
+    terminator_service: Option<TerminatorService<M, S>>,
     chain_id: u64,
     etherscan: String,
     charts_url: String,
@@ -52,13 +56,15 @@ impl<M: Middleware, S: Signer> CreditService<M, S> {
         let credit_managers = Vec::new();
         let path_finder = PathFinder::new(&*config, client.clone());
         let ampq_service = AmpqService::new(config).await;
-        let terminator_service = TerminatorService::new(
-            &config.terminator_address,
-            &config.terminator_flash_address,
-            client.clone(),
-            config.liquidator_enabled,
-        )
-        .await;
+        let mut terminator_service = None;
+        if config.liquidator_enabled {
+            terminator_service = Some(TerminatorService::new(
+                &config.terminator_address,
+                &config.terminator_flash_address,
+                client.clone(),
+                config.liquidator_enabled,
+            ).await);
+        }
         CreditService {
             credit_managers,
             token_service,
@@ -164,6 +170,7 @@ impl<M: Middleware, S: Signer> CreditService<M, S> {
         }
 
         println!("Updating info from {} to {}", &self.last_block_synced, &to);
+        self.ampq_service.send(format!("[New Blocks]\n Updating info from {} to {}", &self.last_block_synced, &to)).await;
 
         // Load fresh prices from oracle
         self.price_oracle.update_prices().await?;
@@ -211,33 +218,34 @@ impl<M: Middleware, S: Signer> CreditService<M, S> {
                 println!("{}", &msg);
                 self.ampq_service.send(msg).await;
 
-                let receipt = self
-                    .terminator_service
-                    .liquidate(job, terminator_type)
-                    .await;
+                if let Some(terminator_service) = &mut self.terminator_service {
+                    let receipt = terminator_service
+                        .liquidate(job, terminator_type)
+                        .await;
 
-                match receipt {
-                    Ok(receipt) => {
-                        msg = format!(
-                            "{} account {:?} was successfully liquidated. TxHash: {}/tx/{:?} . Gas used: {:?}\nBlock number: {}",
-                            self.token_service.symbol(&job.underlying_token),
-                            &job.borrower,
-                            &self.etherscan,
-                            &receipt.transaction_hash,
-                            &receipt.gas_used.unwrap(),
-                            &receipt.block_number.unwrap().as_u64()
-                        );
+                    match receipt {
+                        Ok(receipt) => {
+                            msg = format!(
+                                "{} account {:?} was successfully liquidated. TxHash: {}/tx/{:?} . Gas used: {:?}\nBlock number: {}",
+                                self.token_service.symbol(&job.underlying_token),
+                                &job.borrower,
+                                &self.etherscan,
+                                &receipt.transaction_hash,
+                                &receipt.gas_used.unwrap(),
+                                &receipt.block_number.unwrap().as_u64()
+                            );
+                        }
+                        Err(err) => {
+                            msg = format!(
+                                "WARN: Cant liquidate\nCredit manager: {:?}\naccount {:?}\n{:?}",
+                                &job.credit_manager, &job.borrower, err
+                            );
+                        }
                     }
-                    Err(err) => {
-                        msg = format!(
-                            "WARN: Cant liquidate\nCredit manager: {:?}\naccount {:?}\n{:?}",
-                            &job.credit_manager, &job.borrower, err
-                        );
-                    }
+
+                    println!("{}", &msg);
+                    self.ampq_service.send(msg).await;
                 }
-
-                println!("{}", &msg);
-                self.ampq_service.send(msg).await;
             } else {
                 let msg = format!(
                     "Liquidation required:\ncredit manager {}: {}/address/{:?}\nborrower: {:?}\namount needed: {}",

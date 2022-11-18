@@ -7,6 +7,24 @@ use crate::credit_service::credit_filter::CreditFilter;
 use crate::errors::LiquidationError;
 use crate::price_oracle::oracle::PriceOracle;
 
+
+pub struct CreditAccountMessage {
+    pub contract: Address,
+    pub borrower: Address,
+    pub borrowed_amount: U256,
+    pub health_factor: u64,
+}
+
+impl Debug for CreditAccountMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "| Borrower: {:?}, Borrowed amount: {}, Credit Account Address: {:?}, Health Factor: {} |",
+            self.borrower,  self.borrowed_amount, self.contract, self.health_factor
+        )
+    }
+}
+
 pub struct CreditAccount {
     pub contract: Address,
     pub borrower: Address,

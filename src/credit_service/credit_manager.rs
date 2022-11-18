@@ -15,7 +15,7 @@ use crate::bindings::{
     IDataCompressor,
 };
 use crate::config::config::str_to_address;
-use crate::credit_service::credit_account::CreditAccount;
+use crate::credit_service::credit_account::{ CreditAccount, CreditAccountMessage};
 use crate::credit_service::credit_filter::CreditFilter;
 use crate::credit_service::pool::PoolService;
 use crate::errors::LiquidationError;
@@ -141,6 +141,8 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
         println!("Credit manager: {:?}", &self.address);
 
         let mut accs_to_liquidate: HashSet<Address> = HashSet::new();
+        let mut accounts_hf: Vec<CreditAccountMessage> = Vec::new();
+        let mut accounts_hf_need_liquidated: Vec<CreditAccountMessage> = Vec::new();
         for ca in self.credit_accounts.iter_mut() {
             let hf = ca.1.compute_hf(
                 self.underlying_token,
@@ -149,9 +151,17 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
                 &self.credit_filter,
             )?;
 
+            let ca_copy = CreditAccountMessage {
+                contract: ca.1.contract.clone(),
+                borrower: ca.1.borrower.clone(),
+                borrowed_amount: ca.1.borrowed_amount.clone(),
+                health_factor: ca.1.health_factor,
+            };
+
             println!("{:?} : {:?}", &ca.1.borrower, &hf);
 
             if hf < 10000 {
+                accounts_hf_need_liquidated.push(ca_copy);
                 if self.added_to_job.contains_key(&ca.1.borrower) {
                     let bad_debt_blocks = self.added_to_job[&ca.1.borrower] + 1;
                     *self.added_to_job.get_mut(&ca.1.borrower).unwrap() = bad_debt_blocks;
@@ -179,8 +189,18 @@ impl<M: Middleware, S: Signer> CreditManager<M, S> {
                 }
             } else {
                 self.added_to_job.remove(&ca.1.borrower);
+                if hf < 20000 {
+                    accounts_hf.push(ca_copy);
+                }
             }
         }
+
+        accounts_hf.sort_by(|a, b| a.health_factor.partial_cmp(&b.health_factor).unwrap());
+        self.ampq_service.send(format!("[Accounts With HF < 20000]\n {:?}", accounts_hf)).await;
+
+
+        accounts_hf_need_liquidated.sort_by(|a, b| a.health_factor.partial_cmp(&b.health_factor).unwrap());
+        self.ampq_service.send(format!("[Accounts Need To Be Liquidated]\n {:?}", accounts_hf_need_liquidated)).await;
 
         dbg!(&accs_to_liquidate);
 

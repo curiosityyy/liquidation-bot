@@ -69,11 +69,12 @@ impl Default for Config {
             }
         };
 
-        let liquidator_enabled = if env::var("LIQUIDATOR_ENABLED").unwrap_or("".into()) == "true" {
+	let liquidator_enabled = if env::var("LIQUIDATOR_ENABLED").unwrap_or("".into()) == "true" {
             true
         } else {
             false
         };
+
 
         Config {
             chain_id,
@@ -88,8 +89,8 @@ impl Default for Config {
             terminator_address,
             terminator_flash_address,
             etherscan: etherscan.into(),
-            liquidator_enabled,
             charts_url: charts_url.into(),
+	    liquidator_enabled,
         }
     }
 }

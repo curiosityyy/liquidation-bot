@@ -1,7 +1,11 @@
-use crate::config::Config;
-use lapin::options::BasicPublishOptions;
-use lapin::{BasicProperties, Channel, Connection, ConnectionProperties};
+use std::sync::mpsc::channel;
+
+use lapin::options::{BasicPublishOptions, ExchangeDeclareOptions};
+use lapin::{BasicProperties, Channel, Connection, ConnectionProperties, ExchangeKind};
+use lapin::types::FieldTable;
 use tokio_amqp::*;
+
+use crate::config::Config;
 
 #[derive(Clone)]
 pub struct AmpqService {
@@ -21,14 +25,22 @@ impl AmpqService {
             )
             .await
             .unwrap(); // Note the `with_tokio()` here
-            Some(
+            let channel =
                 conn.create_channel()
                     .await
-                    .expect("Cant connect to channel"),
-            )
+                    .expect("Cant connect to channel");
+            channel.exchange_declare(
+                "DiscordBot",
+                ExchangeKind::Fanout,
+                ExchangeDeclareOptions::default(),
+                FieldTable::default(),
+            ).await.unwrap();
+            Some(channel)
         };
 
+
         let router_key = config.ampq_router_key.clone();
+        dbg!(&config.ampq_addr);
 
         AmpqService {
             channel,
@@ -38,21 +50,26 @@ impl AmpqService {
     }
 
     pub async fn send(&self, msg: String) {
-        let message = format!("[{}]: Liquidation bot:\n {}", &self.network_name, msg);
+        let message = format!("[{}]\n {}", &self.network_name, msg);
+        dbg!(&message);
 
         match &self.channel {
             Some(ch) => {
-                ch.basic_publish(
-                    "TelegramBot",
+                match ch.basic_publish(
+                    "DiscordBot",
                     &self.router_key,
                     BasicPublishOptions::default(),
                     message.into(),
                     BasicProperties::default(),
                 )
-                .await
-                .unwrap()
-                .await
-                .unwrap();
+                .await {
+                    Ok(_) => {
+                        dbg!("Message sent");
+                    }
+                    Err(e) => {
+                        dbg!("Error sending message: {}", e);
+                    }
+                }
             }
             _ => {
                 println!("{}", message);
